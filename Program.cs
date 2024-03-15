@@ -5,11 +5,20 @@ using (var context = new AppDbContext())
 {
     context.Database.Migrate(); // apply any outstanding migrations
 
+    context.Counterparties.ExecuteDelete();
+    context.Counterparties.Add(new CorporateCounterparty { CompanyName = "Lego" });
+    context.Counterparties.Add(new PrivateCounterparty { PersonName = "Charles" });
+    context.SaveChanges();
+}
+
+using (var context = new AppDbContext())
+{
+    context.Contracts.ExecuteDelete();
     context.Contracts.Add(new CreditContract
     {
         Counterparties = [
-            new CorporateCreditCounterparty { CompanyName = "Lego" },
-            new PrivateCreditCounterparty { PersonName = "Charles" }
+            context.Counterparties.OfType<CorporateCounterparty>().Single(),
+            context.Counterparties.OfType<PrivateCounterparty>().Single(),
         ],
     });
     context.SaveChanges();
@@ -28,7 +37,7 @@ public class CreditContract
 {
     public int Id { get; set; }
 
-    public ICollection<CreditCounterparty> Counterparties { get; set; } = null!;
+    public ICollection<Counterparty> Counterparties { get; set; } = null!;
 
     public override string ToString()
     {
@@ -36,13 +45,18 @@ public class CreditContract
     }
 }
 
-public abstract class CreditCounterparty
+public abstract class Counterparty
 {
     public int Id { get; set; }
-    public int CreditContractId { get; set; }
+
+    #region Many-to-many mappings
+
+    public ICollection<CreditContract> InCreditContracts { get; set; } = null!;
+
+    #endregion
 }
 
-public class PrivateCreditCounterparty : CreditCounterparty
+public class PrivateCounterparty : Counterparty
 {
     public string? PersonName { get; set; }
 
@@ -52,7 +66,7 @@ public class PrivateCreditCounterparty : CreditCounterparty
     }
 }
 
-public class CorporateCreditCounterparty : CreditCounterparty
+public class CorporateCounterparty : Counterparty
 {
     public string? CompanyName { get; set; }
 
@@ -64,19 +78,30 @@ public class CorporateCreditCounterparty : CreditCounterparty
 
 public class AppDbContext : DbContext
 {
+    public DbSet<Counterparty> Counterparties { get; init; }
     public DbSet<CreditContract> Contracts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-        builder.Entity<CorporateCreditCounterparty>()
-            .HasBaseType<CreditCounterparty>();
-        builder.Entity<PrivateCreditCounterparty>()
-            .HasBaseType<CreditCounterparty>();
+        builder.Entity<Counterparty>()
+            .HasMany(x => x.InCreditContracts)
+            .WithMany(x => x.Counterparties)
+            .UsingEntity<Dictionary<string, object>>("CreditContractCounterparties", j => j.HasOne<CreditContract>().WithMany().HasForeignKey("ContractId"), j => j.HasOne<Counterparty>().WithMany().HasForeignKey("CounterpartyId"));
+        builder.Entity<CorporateCounterparty>()
+            .HasBaseType<Counterparty>();
+        //builder.Entity<CorporateCounterparty>()
+        //    .Navigation(x => x.Company)
+        //    .AutoInclude();
+        builder.Entity<PrivateCounterparty>()
+            .HasBaseType<Counterparty>();
+        //builder.Entity<PrivateCounterparty>()
+        //    .Navigation(x => x.Person)
+        //    .AutoInclude();
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder.UseSqlServer("Server=localhost;Database=PolymorphicCollection;Trusted_Connection=True;MultipleActiveResultSets=True;Encrypt=False");
+        optionsBuilder.UseSqlServer("Server=localhost;Database=Counterparties;Trusted_Connection=True;MultipleActiveResultSets=True;Encrypt=False");
     }
 }

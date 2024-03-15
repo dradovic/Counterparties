@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace PolymorphicCollection.Migrations
+namespace Counterparties.Migrations
 {
     /// <inheritdoc />
     public partial class Initial : Migration
