@@ -13,7 +13,7 @@ using (var context = new AppDbContext())
 
 using (var context = new AppDbContext())
 {
-    context.Contracts.ExecuteDelete();
+    context.Contracts.RemoveRange(context.Contracts);
     context.Contracts.Add(new CreditContract
     {
         Counterparties = [
@@ -27,7 +27,7 @@ using (var context = new AppDbContext())
 
 using (var context = new AppDbContext())
 {
-    foreach (var contract in context.Contracts.Include(c => c.Counterparties))
+    foreach (var contract in context.Contracts)
     {
         Console.WriteLine(contract.ToString());
     }
@@ -98,6 +98,9 @@ public class AppDbContext : DbContext
         //builder.Entity<PrivateCounterparty>()
         //    .Navigation(x => x.Person)
         //    .AutoInclude();
+        builder.Entity<CreditContract>()
+            .Navigation(x => x.Counterparties)
+            .AutoInclude();
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
